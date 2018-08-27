@@ -860,6 +860,8 @@ Memory
             self.desc.start_of_memory_range, self.desc.memory.data_size, self.desc.memory.rva,
         ));
         try!(self.print_contents(f));
+        try!(write!(f, "\n\nPrintable Memory:\n"));
+        try!(self.print_string_contents(f));
         write!(f, "\n")
     }
 
@@ -872,6 +874,21 @@ Memory
         try!(write!(f, "\n"));
         Ok(())
     }
+
+    /// Write the contents of this `MinidumpMemory` to `f` as either space characters or printable
+    /// characters so that strings on the stack can be seen.
+    pub fn print_string_contents<T: Write>(&self, f: &mut T) -> io::Result<()> {
+        for byte in self.bytes.iter() {
+            if byte.is_ascii() && !byte.is_ascii_control() {
+                try!(write!(f, "{}", *byte as char));
+            } else {
+                try!(write!(f, " "));
+            }
+        }
+        try!(write!(f, "\n"));
+        Ok(())
+    }
+
 
     fn memory_range(&self) -> Range<u64> {
         Range::new(self.base_address, self.base_address + self.size - 1)
@@ -1030,6 +1047,8 @@ impl MinidumpThread {
         if let Some(ref stack) = self.stack {
             try!(writeln!(f, "Stack"));
             try!(stack.print_contents(f));
+            try!(writeln!(f, "\nStack Strings:"));
+            try!(stack.print_string_contents(f));
         } else {
             try!(writeln!(f, "No stack"));
         }
